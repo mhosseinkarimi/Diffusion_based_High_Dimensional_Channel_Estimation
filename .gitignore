@@ -1,0 +1,21 @@
+# data folder
+data/*
+
+# Log folder
+lightning_logs/*
+
+# test notebook
+test.ipynb
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+
+# VSCode settings
+.vscode/
+
+# Logs
+logs/
