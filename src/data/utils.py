@@ -113,11 +113,10 @@ class ChannelDataModule(L.LightningDataModule):
         self.persistent_workers = persistent_workers
         self.split_val = split_val
         
-        # Construct transforms pipeline
-        self.transforms = T.Compose([
-            T.ToDtype(torch.float32),
-            T.Normalize(mean=[0.0], std=[1.0])
-        ])
+        # Define transforms in setup() after calculating stats
+        self.transforms = None
+        self.data_mean = None
+        self.data_std = None
         
         self.train_set = None
         self.val_set = None
@@ -132,6 +131,42 @@ class ChannelDataModule(L.LightningDataModule):
 
     def setup(self, stage=None):
         # Called on every process in DDP
+        if self.data_mean is None:
+            print("Calculating dataset statistics...")
+            # Build a temporary dataset *without* normalization
+            # to calculate stats from the raw training data
+            temp_transforms = T.Compose([T.ToDtype(torch.float32)])
+        
+        if self.data_mean is None:
+            print("Calculating dataset statistics...")
+            # Build a temporary dataset *without* normalization
+            # to calculate stats from the raw training data
+            temp_transforms = T.Compose([T.ToDtype(torch.float32)])
+            if self.file_type == "mat":
+                stat_dataset = MATDataset(self.train_path, self.decompose_mode, transforms=temp_transforms)
+                raw_data = stat_dataset.data # Shape is (N, H, W, C)
+                self.data_mean = np.mean(raw_data, axis=(0, 1, 2))
+                self.data_std = np.std(raw_data, axis=(0, 1, 2))
+            elif self.file_type == "hdf5":
+                stat_dataset = HDF5Dataset(self.train_path, self.decompose_mode, transforms=temp_transforms)
+                raw_data = stat_dataset.data # Shape is (H, W, C, N)
+                print("Raw data shape for stats:", raw_data.shape)
+                self.data_mean = np.mean(raw_data, axis=(0, 1, 3))
+                self.data_std = np.std(raw_data, axis=(0, 1, 3))
+            
+            # Convert to list for the transform
+            self.data_mean = list(self.data_mean)
+            self.data_std = list(self.data_std)
+            
+            print(f"Calculated Mean: {self.data_mean}")
+            print(f"Calculated Std: {self.data_std}")
+
+            # Now, create the *real* transforms
+            self.transforms = T.Compose([
+                T.ToDtype(torch.float32),
+                T.Normalize(mean=self.data_mean, std=self.data_std)
+            ])
+        
         if stage in (None, "fit"):
             full_train = self._build_dataset(self.train_path)
             if self.val_path is not None:
@@ -185,18 +220,3 @@ class ChannelDataModule(L.LightningDataModule):
             persistent_workers=self.persistent_workers,
             drop_last=False
         )
-
-    
-    
-if __name__ == "__main__":
-    data_dir = "E:/Diffusion-based Channel Estimation/data/CDL-A/val_dataset.mat"
-    channel_data = load_hdf5_file(data_dir, decompose_mode="magnitude_phase")
-    print(channel_data.shape)
-    dataset = HDF5Dataset(data_dir, decompose_mode="magnitude_phase")
-    print(len(dataset))
-    print(dataset[0].shape)
-    loader = make_loader(dataset, batch_size=4, world_size=1)
-    for batch in loader:
-        print(batch.shape)
-        break
-    
