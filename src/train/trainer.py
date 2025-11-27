@@ -69,7 +69,7 @@ class DDPMLightningModule(L.LightningModule):
         noise = torch.randn_like(x0)
         x_t = self.forward_sample(x0, t, noise)
         
-        t_in = t.float()/self.hparams.T
+        t_in = t.float()
         
         pred = self.model(x_t, t_in, cond)
         loss = nn.MSELoss()(pred, noise)
@@ -92,7 +92,7 @@ class DDPMLightningModule(L.LightningModule):
         t = torch.randint(0, self.hparams.T, (B,), device=x0.device)
         noise = torch.randn_like(x0)
         x_t = self.forward_sample(x0, t, noise)
-        t_in = t.float()/self.hparams.T
+        t_in = t.float()
         pred = self.model_ema(x_t, t_in, cond)
         loss = nn.MSELoss()(pred, noise)
         self.log('val/loss', loss, on_step=False, on_epoch=True, prog_bar=True)

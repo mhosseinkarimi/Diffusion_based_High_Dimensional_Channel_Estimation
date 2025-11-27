@@ -17,14 +17,14 @@ warnings.filterwarnings("ignore", message="Please use the new API settings to co
 torch.set_float32_matmul_precision('high')  # 'high' or 'medium'; 'ieee' = strict
 
 # New-style per-backend knobs (optional, explicit):
-torch.backends.cuda.matmul.fp32_precision = 'high'  # 'high' | 'medium' | 'ieee'
+torch.backends.cuda.matmul.fp32_precision = 'tf32'  
 torch.backends.cudnn.conv.fp32_precision  = 'tf32'  # enable TF32 in cuDNN convolutions
 def main():
     dm = ChannelDataModule(
         train_path="data/CDL-A/sample_dataset_beamspace.mat",
         file_type="hdf5",
         decompose_mode="real_imag",
-        batch_size=256,
+        batch_size=8,
         num_workers=4,
         pin_memory=True,
         prefetch_factor=2,
@@ -36,16 +36,16 @@ def main():
         in_channels=2,
         base_channels=64,
         out_channels=2,
-        time_dim=64,
-        channel_mults=(1, 2, 2),
+        time_dim=256,
+        channel_mults=(1, 2, 4, 8),
         with_cross_attention=False
     )
 
     diff_module = DDPMLightningModule(
         model=model,
-        T=400,
-        lr=3e-4,
-        wd=1e-2,
+        T=1000,
+        lr=1e-3,
+        wd=1e-4,
         ema_decay=0.9999,
         beta_scheduler='cosine',
         device="cuda" if torch.cuda.is_available() else "cpu"
